@@ -1,53 +1,66 @@
-class fifo_write_monitor;
+class fifo_write_monitor extends uvm_monitor;
+    `uvm_component_utils(fifo_write_monitor)
 
     virtual async_fifo_if #(DATA_WIDTH) vif;
-    fifo_scoreboard                      scb;
+    uvm_analysis_port #(fifo_seq_item)  ap;
 
-    function new(
-        virtual async_fifo_if #(DATA_WIDTH) vif,
-        fifo_scoreboard                      scb
-    );
-        this.vif = vif;
-        this.scb = scb;
+    function new(string name = "fifo_write_monitor",uvm_component parent = null);
+        super.new(name,parent);
+        ap = new("ap",this);
     endfunction
 
-    task run();
+    function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        if(!uvm_config_db #(virtual async_fifo_if #(DATA_WIDTH))::get(this,"","vif",vif))begin
+            `uvm_fatal("WR_MON","cannot get vif")
+        end
+    endfunction
+
+    task run_phase(uvm_phase phase);
+        fifo_seq_item tr;
         forever begin
             @(posedge vif.wr_clk);
-
-            // Sample only accepted DUT writes.
             if (vif.wr_rst_n && vif.wr_en && !vif.full) begin
-                scb.observe_write(vif.wr_data);
+                tr = fifo_seq_item::type_id::create("tr");
+                tr.op = fifo_seq_item::FIFO_WRITE;
+                tr.data = vif.wr_data;
+                `uvm_info("WR_MON",$sformatf("observed write data = 0x%0h",tr.data),UVM_MEDIUM)
+                ap.write(tr);
             end
         end
     endtask
-
 endclass
 
 
-class fifo_read_monitor;
+class fifo_read_monitor extends uvm_monitor;
+    `uvm_component_utils(fifo_read_monitor)
 
     virtual async_fifo_if #(DATA_WIDTH) vif;
-    fifo_scoreboard                      scb;
+    uvm_analysis_port #(fifo_seq_item)  ap;
 
-    function new(
-        virtual async_fifo_if #(DATA_WIDTH) vif,
-        fifo_scoreboard                      scb
-    );
-        this.vif = vif;
-        this.scb = scb;
+    function new(string name = "fifo_read_monitor",uvm_component parent = null);
+        super.new(name,parent);
+        ap = new("ap",this);
     endfunction
 
-    task run();
+    function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        if(!uvm_config_db #(virtual async_fifo_if #(DATA_WIDTH))::get(this,"","vif",vif))begin
+            `uvm_fatal("RD_MON","cannot get vif")
+        end
+    endfunction
+
+    task run_phase(uvm_phase phase);
+        fifo_seq_item tr;
         forever begin
             @(posedge vif.rd_clk);
-
-            // With asynchronous RAM read, rd_data corresponds to current rd_addr
-            // in the active region before rd_ptr advances in NBA.
             if (vif.rd_rst_n && vif.rd_en && !vif.empty) begin
-                scb.observe_read(vif.rd_data);
+                tr = fifo_seq_item::type_id::create("tr");
+                tr.op = fifo_seq_item::FIFO_READ;
+                tr.data = vif.rd_data;
+                `uvm_info("RD_MON",$sformatf("observed read data = 0x%0h",tr.data),UVM_MEDIUM)
+                ap.write(tr);
             end
         end
     endtask
-
 endclass
