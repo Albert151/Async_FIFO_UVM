@@ -18,7 +18,7 @@ class fifo_write_seq extends uvm_sequence #(fifo_seq_item);
         fifo_seq_item tr;
 
         for(int unsigned i=0;i<num_items;i++)begin
-            tr=fifo_write_seq::type_id::create("tr");
+            tr=fifo_seq_item::type_id::create($sformatf("wr_tr_%0d",i));
 
             start_item(tr);
             if(random_data) begin
@@ -27,13 +27,45 @@ class fifo_write_seq extends uvm_sequence #(fifo_seq_item);
                 end
             end
             else begin  
-                tr.data = start_data + 1;
+                tr.data = start_data + i;
             end
 
             tr.op = fifo_seq_item::FIFO_WRITE;
-            tr,wait_for_ready = wait_for_ready;
+            tr.wait_for_ready = wait_for_ready;
 
             finish_item(tr);
             `uvm_info("WR_SEQ",$sformatf("WRITE item %0d data = 0x%0h wait_for_ready = %0b",i,tr.data,tr.wait_for_ready),UVM_MEDIUM)
         end
     endtask
+endclass
+
+
+class fifo_read_seq extends uvm_sequence #(fifo_seq_item);
+    `uvm_object_utils(fifo_read_seq)
+
+    int unsigned num_items;
+    bit wait_for_ready;
+
+    function new(string name = "fifo_read_seq");
+        super.new(name);
+        num_items = 8;
+        wait_for_ready = 1'b1;
+    endfunction
+
+    virtual task body();
+        fifo_seq_item tr;
+
+        for(int unsigned i=0;i<num_items;i++)begin
+            tr=fifo_seq_item::type_id::create($sformatf("rd_tr_%0d",i));
+
+            start_item(tr);
+            tr.op = fifo_seq_item::FIFO_READ;
+            tr.data = '0;
+            tr.wait_for_ready = wait_for_ready;
+
+            finish_item(tr);
+            `uvm_info("RD_SEQ",$sformatf("read request %0d  wait_for_ready = %0b",i,tr.wait_for_ready),UVM_MEDIUM)
+        end
+    endtask
+endclass
+
